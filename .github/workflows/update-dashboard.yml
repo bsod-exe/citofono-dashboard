@@ -1,1 +1,44 @@
 
+name: Aggiorna dashboard citofono
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installa dipendenze
+        run: pip install pillow
+
+      - name: Genera il frame
+        run: python3 gen_frame.py build_output
+
+      - name: Pubblica su branch dashboard-output
+        run: |
+          git config user.name "dashboard-bot"
+          git config user.email "dashboard-bot@users.noreply.github.com"
+
+          git checkout --orphan dashboard-output-tmp
+          git reset --hard
+          cp build_output/frame_x3.bin .
+          cp build_output/frame.bin .
+          git add frame_x3.bin frame.bin
+          git commit -m "Aggiornamento dashboard $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          git branch -D dashboard-output 2>/dev/null || true
+          git branch -m dashboard-output
+          git push --force origin dashboard-output
