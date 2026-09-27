@@ -15,7 +15,7 @@
 # nelle condizioni gia' validate.
 # ==========================================================================
 
-FRAME_URL="https://raw.githubusercontent.com/USERNAME/REPO/dashboard-output/frame_x3.bin"
+FRAME_URL="https://raw.githubusercontent.com/bsod-exe/citofono-dashboard/dashboard-output/frame_x3.bin"
 LOCAL=/var/dashboard_frame.bin
 TMP=/var/dashboard_frame.tmp
 LOG=/var/dashboard_wrapper.log
