@@ -81,9 +81,9 @@ def build():
     bg = Image.new('RGBA', (W, H), (20, 24, 28, 255))
     draw = ImageDraw.Draw(bg)
 
-    # Dati Meteo di base (puoi collegarli alle tue API in futuro)
+    # Dati Meteo (con la nuova località impostata)
     weather = {
-        'location': 'Roma',
+        'location': 'Patti (ME)',
         'current_temp': 22,
         'current_label': 'Parzialmente nuvoloso',
         'current_icon': 'cloudy',
