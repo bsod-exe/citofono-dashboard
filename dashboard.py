@@ -1,15 +1,55 @@
-# --- Top: date + location (left) ---
+import datetime
+from PIL import Image, ImageDraw, ImageFont
+import calendar as cal_mod
+
+# [Incolla qui le tue funzioni di supporto esistenti, es. font(), rounded_glass_card(), ICON_MAP, ecc.]
+
+def build():
+    # Dimensioni schermo citofono
+    W, H = 1024, 600
+    pad = 32
+
+    # Immagine di base (sfondo o canvas vuoto)
+    bg = Image.new('RGBA', (W, H), (20, 24, 28, 255))
+    draw = ImageDraw.Draw(bg)
+
+    # --- Dati Meteo fittizi o presi dal tuo modulo esistente ---
+    # (Assicurati di mantenere la chiamata reale che usi per recuperare i dati meteo)
+    weather = {
+        'location': 'Roma',
+        'current_temp': 22,
+        'current_label': 'Parzialmente nuvoloso',
+        'current_icon': 'cloudy',
+        'today_min': 14,
+        'today_max': 24,
+        'hourly': [
+            ['Adesso', 22, 'cloudy'],
+            ['12:00', 23, 'sunny'],
+            ['15:00', 24, 'sunny'],
+            ['18:00', 21, 'cloudy'],
+            ['21:00', 18, 'rain']
+        ],
+        'daily': [
+            ['Oggi', 14, 24, 'cloudy'],
+            ['Mer', 13, 22, 'sunny'],
+            ['Gio', 12, 20, 'rain'],
+            ['Ven', 15, 25, 'sunny'],
+            ['Sab', 16, 26, 'sunny']
+        ]
+    }
+
+    # --- Top: date + location (left) ---
     now = datetime.datetime.now()
     giorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica']
     mesi = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio',
-                'agosto','settembre','ottobre','novembre','dicembre']
+            'agosto','settembre','ottobre','novembre','dicembre']
     date_str = f'{giorni[now.weekday()]} {now.day} {mesi[now.month-1]} {now.year}'
 
     # Spostato in alto al posto dell'orologio
     draw.text((pad, 30), date_str, font=font('bold', 28), fill=(255,255,255,255))
     draw.text((pad, 70), weather['location'], font=font('medium', 20), fill=(255,205,90,255))
 
-    # --- Top right: current weather (spostato leggermente più in alto) ---
+    # --- Top right: current weather ---
     icon_fn = ICON_MAP[weather['current_icon']]
     icon = icon_fn(80)
     bg.alpha_composite(icon, (548, 18))
@@ -17,15 +57,14 @@
     draw.text((650, 78), weather['current_label'], font=font('regular', 18), fill=(225,235,225,255))
     draw.text((650, 104), f"Min {weather['today_min']}°    Max {weather['today_max']}°", font=font('regular', 15), fill=(190,205,190,255))
 
-    # divider più in alto
+    # Divider
     draw.line([(pad, 122), (W - pad, 122)], fill=(255,255,255,60), width=1)
 
-    # --- Calendar card (bottom left - riposizionata) ---
+    # --- Calendar card (bottom left) ---
     cal_box = [pad, 142, 494, 578]
     rounded_glass_card(bg, cal_box, radius=24)
     draw = ImageDraw.Draw(bg)
 
-    import calendar as cal_mod
     mesi_cap = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio',
                 'Agosto','Settembre','Ottobre','Novembre','Dicembre']
     month_label = f'{mesi_cap[now.month-1]} {now.year}'
@@ -42,7 +81,7 @@
         color = (200,60,60,255) if i == 6 else (110,120,110,255)
         draw.text(col, d, font=font('medium', 15), fill=color)
 
-    first_weekday, days_in_month = cal_mod.monthrange(now.year, now.month)  # Mon=0
+    first_weekday, days_in_month = cal_mod.monthrange(now.year, now.month)
     today = now.day
 
     row_h = 40
@@ -75,7 +114,7 @@
         if day_num > days_in_month:
             break
 
-    # event dots
+    # Event dots
     example_events = [d for d in [28, 30] if d <= days_in_month]
     for d in example_events:
         col = (d - 1 + first_weekday) % 7
@@ -84,11 +123,11 @@
         y = grid_y0 + r*row_h + 22
         draw.ellipse([x-3, y-3, x+3, y+3], fill=(90,180,110,255))
 
-    # --- Weather cards (right column - riposizionate) ---
+    # --- Weather cards (right column) ---
     right_x0 = 514
     right_w = W - pad - right_x0
 
-    # hourly card
+    # Hourly card
     hourly_box = [right_x0, 142, right_x0 + right_w, 282]
     rounded_glass_card(bg, hourly_box, radius=24)
     draw = ImageDraw.Draw(bg)
