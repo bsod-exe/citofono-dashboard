@@ -1,5 +1,7 @@
 import datetime
 import math
+import urllib.request
+import json
 from PIL import Image, ImageDraw, ImageFont
 import calendar as cal_mod
 
@@ -69,6 +71,82 @@ ICON_MAP = {
     'rain': icon_rain
 }
 
+# --- MOTORE METEO REALE (OPEN-METEO) ---
+
+def get_real_weather():
+    """Scarica il meteo reale di Patti (ME) da Open-Meteo."""
+    # Coordinate di Patti (Messina)
+    lat, lon = "38.14", "14.97"
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FRome"
+    
+    # Dati fittizi in caso di mancanza di connessione internet di GitHub
+    weather = {
+        'location': 'Patti (ME)',
+        'current_temp': 22, 'current_label': 'In aggiornamento...', 'current_icon': 'cloudy',
+        'today_min': 15, 'today_max': 25,
+        'hourly': [['Adesso', 22, 'cloudy'], ['---', 0, 'cloudy'], ['---', 0, 'cloudy'], ['---', 0, 'cloudy'], ['---', 0, 'cloudy']],
+        'daily': [['Oggi', 15, 25, 'cloudy'], ['---', 0, 0, 'cloudy'], ['---', 0, 0, 'cloudy'], ['---', 0, 0, 'cloudy'], ['---', 0, 0, 'cloudy']]
+    }
+
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode())
+
+        # Converte i codici numerici internazionali (WMO) nelle nostre icone
+        def get_icon(code):
+            if code <= 1: return 'sunny'
+            elif code <= 3: return 'cloudy'
+            elif code in [45, 48]: return 'cloudy' # nebbia
+            else: return 'rain' # pioggia o temporali
+
+        def get_label(code):
+            if code == 0: return 'Sereno'
+            elif code in [1, 2]: return 'Parz. nuvoloso'
+            elif code == 3: return 'Nuvoloso'
+            elif code in [45, 48]: return 'Nebbia'
+            elif 51 <= code <= 69: return 'Pioggia'
+            elif 71 <= code <= 79: return 'Neve'
+            elif code >= 95: return 'Temporale'
+            return 'Instabile'
+
+        # Meteo Attuale
+        weather['current_temp'] = round(data['current']['temperature_2m'])
+        weather['current_icon'] = get_icon(data['current']['weather_code'])
+        weather['current_label'] = get_label(data['current']['weather_code'])
+        weather['today_min'] = round(data['daily']['temperature_2m_min'][0])
+        weather['today_max'] = round(data['daily']['temperature_2m_max'][0])
+
+        # Previsioni orarie (Adesso + prossime 4 fasce saltando di 3 ore in 3 ore)
+        now_hour = datetime.datetime.now().hour
+        hourly = [['Adesso', weather['current_temp'], weather['current_icon']]]
+        for i in range(1, 5):
+            idx = now_hour + (i * 3)
+            if idx < len(data['hourly']['time']):
+                time_str = data['hourly']['time'][idx][11:16] # Es. "15:00"
+                temp = round(data['hourly']['temperature_2m'][idx])
+                icon = get_icon(data['hourly']['weather_code'][idx])
+                hourly.append([time_str, temp, icon])
+        weather['hourly'] = hourly
+
+        # Previsioni per i prossimi giorni
+        giorni_sett = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom']
+        daily = []
+        for i in range(5):
+            date_str = data['daily']['time'][i] # Es "2023-10-25"
+            dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+            label = 'Oggi' if i == 0 else giorni_sett[dt.weekday()]
+            tmin = round(data['daily']['temperature_2m_min'][i])
+            tmax = round(data['daily']['temperature_2m_max'][i])
+            icon = get_icon(data['daily']['weather_code'][i])
+            daily.append([label, tmin, tmax, icon])
+        weather['daily'] = daily
+
+    except Exception as e:
+        print("Errore scaricamento meteo:", e)
+
+    return weather
+
 
 # --- COSTRUZIONE DELLA DASHBOARD ---
 
@@ -81,29 +159,8 @@ def build():
     bg = Image.new('RGBA', (W, H), (20, 24, 28, 255))
     draw = ImageDraw.Draw(bg)
 
-    # Dati Meteo (con la nuova località impostata)
-    weather = {
-        'location': 'Patti (ME)',
-        'current_temp': 22,
-        'current_label': 'Parzialmente nuvoloso',
-        'current_icon': 'cloudy',
-        'today_min': 14,
-        'today_max': 24,
-        'hourly': [
-            ['Adesso', 22, 'cloudy'],
-            ['12:00', 23, 'sunny'],
-            ['15:00', 24, 'sunny'],
-            ['18:00', 21, 'cloudy'],
-            ['21:00', 18, 'rain']
-        ],
-        'daily': [
-            ['Oggi', 14, 24, 'cloudy'],
-            ['Mer', 13, 22, 'sunny'],
-            ['Gio', 12, 20, 'rain'],
-            ['Ven', 15, 25, 'sunny'],
-            ['Sab', 16, 26, 'sunny']
-        ]
-    }
+    # Scarica i dati reali da Open-Meteo!
+    weather = get_real_weather()
 
     # --- Top: data + location (NIENTE OROLOGIO) ---
     now = datetime.datetime.now()
