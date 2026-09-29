@@ -1,8 +1,9 @@
 import datetime
+import math
 from PIL import Image, ImageDraw, ImageFont
 import calendar as cal_mod
 
-# --- FUNZIONI DI SUPPORTO RICOSTRUITE ---
+# --- FUNZIONI DI SUPPORTO E STILE ---
 
 def font(weight, size):
     """Tenta di caricare un font standard di sistema (Ubuntu), altrimenti usa il default."""
@@ -22,24 +23,54 @@ def rounded_glass_card(bg, box, radius=24):
     draw.rounded_rectangle(box, radius=radius, fill=(255, 255, 255, 20), outline=(255, 255, 255, 50), width=1)
     bg.alpha_composite(overlay)
 
-def generate_icon(color):
-    """Genera un'icona segnaposto colorata per evitare crash se mancano i file."""
-    def builder(size):
-        img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        draw.ellipse([0, 0, size-1, size-1], fill=color)
-        return img
-    return builder
+# --- NUOVE ICONE VETTORIALI METEO ---
 
-# Mappa icone fittizie (puoi rimettere le tue PNG in futuro)
+def icon_sunny(size):
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img, 'RGBA')
+    c = size / 2
+    r = size * 0.22
+    draw.ellipse([c-r, c-r, c+r, c+r], fill=(255, 195, 0, 255))
+    for i in range(8):
+        angle = i * math.pi / 4
+        x1 = c + math.cos(angle) * (r * 1.4)
+        y1 = c + math.sin(angle) * (r * 1.4)
+        x2 = c + math.cos(angle) * (r * 1.9)
+        y2 = c + math.sin(angle) * (r * 1.9)
+        draw.line([(x1, y1), (x2, y2)], fill=(255, 195, 0, 255), width=max(2, int(size*0.06)))
+    return img
+
+def icon_cloudy(size):
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img, 'RGBA')
+    color = (215, 225, 235, 255)
+    draw.rounded_rectangle([size*0.15, size*0.45, size*0.85, size*0.75], radius=size*0.15, fill=color)
+    draw.ellipse([size*0.2, size*0.25, size*0.55, size*0.6], fill=color)
+    draw.ellipse([size*0.4, size*0.15, size*0.8, size*0.55], fill=color)
+    return img
+
+def icon_rain(size):
+    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img, 'RGBA')
+    rain_color = (100, 170, 255, 255)
+    for dx, dy in [(0.3, 0.65), (0.5, 0.65), (0.7, 0.65)]:
+        x1, y1 = size*dx, size*dy
+        x2, y2 = size*(dx - 0.1), size*(dy + 0.25)
+        draw.line([(x1, y1), (x2, y2)], fill=rain_color, width=max(2, int(size*0.04)))
+    cloud_color = (160, 175, 190, 255)
+    draw.rounded_rectangle([size*0.15, size*0.35, size*0.85, size*0.65], radius=size*0.15, fill=cloud_color)
+    draw.ellipse([size*0.2, size*0.15, size*0.55, size*0.5], fill=cloud_color)
+    draw.ellipse([size*0.4, size*0.05, size*0.8, size*0.45], fill=cloud_color)
+    return img
+
 ICON_MAP = {
-    'cloudy': generate_icon((150, 160, 170, 255)), # Grigio
-    'sunny': generate_icon((255, 210, 80, 255)),   # Giallo
-    'rain': generate_icon((80, 130, 220, 255))     # Blu
+    'sunny': icon_sunny,
+    'cloudy': icon_cloudy,
+    'rain': icon_rain
 }
 
-# --- FINE FUNZIONI DI SUPPORTO ---
 
+# --- COSTRUZIONE DELLA DASHBOARD ---
 
 def build():
     # Dimensioni schermo citofono
@@ -50,7 +81,7 @@ def build():
     bg = Image.new('RGBA', (W, H), (20, 24, 28, 255))
     draw = ImageDraw.Draw(bg)
 
-    # Dati Meteo di base
+    # Dati Meteo di base (puoi collegarli alle tue API in futuro)
     weather = {
         'location': 'Roma',
         'current_temp': 22,
@@ -74,7 +105,7 @@ def build():
         ]
     }
 
-    # --- Top: date + location ---
+    # --- Top: data + location (NIENTE OROLOGIO) ---
     now = datetime.datetime.now()
     giorni = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica']
     mesi = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio',
@@ -84,7 +115,7 @@ def build():
     draw.text((pad, 30), date_str, font=font('bold', 28), fill=(255, 255, 255, 255))
     draw.text((pad, 70), weather['location'], font=font('medium', 20), fill=(255, 205, 90, 255))
 
-    # --- Top right: current weather ---
+    # --- Top right: meteo corrente ---
     icon_fn = ICON_MAP[weather['current_icon']]
     icon = icon_fn(80)
     bg.alpha_composite(icon, (548, 18))
@@ -92,10 +123,10 @@ def build():
     draw.text((650, 78), weather['current_label'], font=font('regular', 18), fill=(225, 235, 225, 255))
     draw.text((650, 104), f"Min {weather['today_min']}°    Max {weather['today_max']}°", font=font('regular', 15), fill=(190, 205, 190, 255))
 
-    # Divider
+    # Linea divisoria
     draw.line([(pad, 122), (W - pad, 122)], fill=(255, 255, 255, 60), width=1)
 
-    # --- Calendar card ---
+    # --- Calendar card (in basso a sinistra) ---
     cal_box = [pad, 142, 494, 578]
     rounded_glass_card(bg, cal_box, radius=24)
     draw = ImageDraw.Draw(bg)
@@ -149,7 +180,7 @@ def build():
         if day_num > days_in_month:
             break
 
-    # Event dots (giorni 28 e 30 d'esempio)
+    # Pallini eventi d'esempio
     example_events = [d for d in [28, 30] if d <= days_in_month]
     for d in example_events:
         col = (d - 1 + first_weekday) % 7
@@ -158,7 +189,7 @@ def build():
         y = grid_y0 + r*row_h + 22
         draw.ellipse([x-3, y-3, x+3, y+3], fill=(90, 180, 110, 255))
 
-    # --- Weather cards ---
+    # --- Weather cards (colonna destra) ---
     right_x0 = 514
     right_w = W - pad - right_x0
 
